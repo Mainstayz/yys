@@ -112,7 +112,7 @@ class RaiseDog(object):
                         Utils.script_sleep(1)
                     else:
                         self.find_sec = True
-                        Utils.touch_randomly(r)
+                        Utils.touch_center(r)
                         loc = RaiseDogState.EXPLORE_PRE
                 continue
 
