@@ -26,12 +26,12 @@ if adb.init():
         sys.exit()
 
     # 开启妖气封印
-    seal = Seal(config)
-    seal.start_logic()
+    # seal = Seal(config)
+    # seal.start_logic()
 
     # 养狗粮
-    # raise_dog = RaiseDog(config)
-    # raise_dog.start_logic()
+    raise_dog = RaiseDog(config)
+    raise_dog.start_logic()
 
 else:
     Logger.log_error('Unable to connect to the service.')

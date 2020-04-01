@@ -21,69 +21,104 @@ class RaiseDog(object):
             "difficult_level": Region(842, 304, 102, 78),
             "start_explore": Region(1532, 768, 190, 83),
         }
+        self.find_sec = False
+        self.first_time = True
+        self.is_boss = False
+        self.swipe_right = True
+        self.swipe_count = 0
+        self.retry_count = 0
+
+    def reset(self):
+        self.find_sec = False
+        self.first_time = True
+        self.is_boss = False
+        self.swipe_right = True
+        self.swipe_count = 0
+        self.retry_count = 0
 
     def start_logic(self):
         Logger.log_msg("开始练狗粮")
         self.enabled = True
         loc = RaiseDogState.NONE
-        # 打 boss
-        find_sec = False
-        # 首次进入
-        first_time = True
-        is_boss = False
-        swipe_right = True
-        swipe_count = 10
-
         while True:
             if loc == RaiseDogState.NONE:
                 Utils.update_screen()
-                if Utils.find_and_touch("home/explore", 0.6):
+                if Utils.find_and_touch("home/explore", 0.6, True):
                     Logger.log_msg("首页，点击探索")
-                    Utils.script_sleep()
+                    Utils.script_sleep(3)
                     loc = RaiseDogState.EXPLORE
+                    self.reset()
                 elif Utils.find("explore/icon_yao"):
                     Logger.log_msg("探索页面")
                     loc = RaiseDogState.EXPLORE
+                    self.reset()
+                    if Utils.find_and_touch("explore/booty"):
+                        Logger.log_msg("！！发现宝箱 ！！")
+                        Utils.script_sleep(2)
+                        Utils.touch_randomly()
+                        Utils.script_sleep(1)
+
                 elif Utils.find("explore/explore_1"):
                     Logger.log_msg("准备进本")
                     Utils.touch_randomly(self.region["difficult_level"])
                     Utils.script_sleep()
                     loc = RaiseDogState.EXPLORE_PRE
+                    self.first_time = True
+                    self.is_boss = False
+                    self.swipe_right = True
+                    self.swipe_count = 0
+                    self.retry_count = 0
                 elif Utils.find("duplicate/back"):
                     Logger.log_msg("在副本中")
                     Utils.script_sleep()
                     loc = RaiseDogState.SCENE
+                elif Utils.find("combat/ready"):
+                    self.first_time = False
+                    Logger.log_msg("战斗")
+                    Utils.touch_randomly(globals_region["combat_ready"])
+                    loc = RaiseDogState.FIGHT
                 else:
                     Logger.log_msg("未知场景。。")
+                    self.retry_count -= 1
+                    if self.retry_count <= 0:
+                        sys.exit(-1)
                 continue
 
             if loc == RaiseDogState.EXPLORE:
                 sec = self.config.dog["section"]
                 Logger.log_msg(f"查找章节:{sec}")
                 # 查找对应章节
-                swipe_count = 0
+                find_count = 0
                 down = True
-                while not find_sec:
+                while not self.find_sec:
+                    # 尝试的次数
+                    if find_count > 20:
+                        print("无法找到对应的章节")
+                        sys.exit(-1)
+
+                    if find_count == 10:
+                        find_count = 0
+                        down = bool(1 - down)
+
                     Utils.update_screen()
+
                     r = Utils.find(f"explore/{sec}")
-                    if swipe_count == 9:
-                        swipe_count = 0
-                        down = not down
                     if not r:
                         if down:
                             Utils.swipe(2148, 700, 2148, 500, randint(300, 500))
                         else:
                             Utils.swipe(2148, 500, 2148, 700, randint(300, 500))
-                        swipe_count += 1
+                        find_count += 1
                         Utils.script_sleep(1)
                     else:
-                        find_sec = True
+                        self.find_sec = True
                         Utils.touch_randomly(r)
                         loc = RaiseDogState.EXPLORE_PRE
                 continue
 
             if loc == RaiseDogState.EXPLORE_PRE:
-                first_time = True
+                # reset
+                self.reset()
                 Logger.log_msg("选中困难")
                 Utils.touch_randomly(self.region["difficult_level"])
                 Logger.log_msg("点击开始探索")
@@ -93,23 +128,10 @@ class RaiseDog(object):
 
             # 副本中
             if loc == RaiseDogState.SCENE:
-                Logger.log_msg("副本中，等待..")
-                # 如果已经退出副本了
-                if Utils.find("explore/explore_1"):
-                    Logger.log_msg("跳出了副本场景，准备进本")
-                    first_time = True
-                    Utils.touch_randomly(self.region["start_explore"])
-                    Utils.script_sleep(2)
-                    continue
-
-                if first_time:
-                    is_boss = False
-                    swipe_right = True
-                    swipe_count = 10
-
-                if is_boss:
+                Logger.log_msg("副本场景")
+                if self.is_boss:
                     Utils.script_sleep(3)
-                    Logger.log_msg("查找胜利品")
+                    Logger.log_msg("打完boss, 副本结束")
                     Utils.update_screen()
                     while Utils.find_and_touch("duplicate/booty"):
                         Logger.log_msg("找到胜利品")
@@ -118,9 +140,7 @@ class RaiseDog(object):
                         Utils.script_sleep(1)
                         Utils.update_screen()
                     Logger.log_msg("查找胜利品结束")
-                    find_sec = False
                     loc = RaiseDogState.NONE
-                    is_boss = False
                     # 等一会跳到探索页面
                     Utils.script_sleep(2)
                     continue
@@ -130,38 +150,42 @@ class RaiseDog(object):
                     Logger.log_msg("boss出现了..")
                     loc = RaiseDogState.FIGHT
                     Utils.script_sleep(2)
-                    is_boss = True
+                    self.is_boss = True
                 elif Utils.find_and_touch("duplicate/fire"):
                     loc = RaiseDogState.FIGHT
                     Utils.script_sleep(2)
-                    is_boss = False
+                    self.is_boss = False
                 else:
-                    if swipe_right:
+                    if self.swipe_right:
                         Logger.log_msg("划到右边看看")
                         Utils.swipe(1437, 500, 960, 500, randint(300, 500))
                     else:
                         Logger.log_msg("划到左边看看")
                         Utils.swipe(960, 500, 1437, 500, randint(300, 500))
+                    #
+                    Utils.script_sleep(1)
 
-                    swipe_count -= 1
-                    if swipe_count < (swipe_count >> 1):
+                    self.swipe_count += 1
+                    if self.swipe_count % 6 == 0:
                         Logger.log_msg("换个方向")
-                        swipe_right = not swipe_right
+                        self.swipe_right = bool(1 - self.swipe_right)
 
-                if swipe_count < 0:
+                if self.swipe_count > 20:
                     Logger.log_msg("超过最大次数重新判断当前页面。")
                     loc = RaiseDogState.NONE
                 continue
 
             if loc == RaiseDogState.FIGHT:
+
+                # 由于怪物是跑动的，解决有时点击不中的bug
                 Utils.update_screen()
                 if Utils.find("duplicate/back"):
-                    Logger.log_msg("副本中")
+                    Logger.log_msg("点不着，重试..")
                     loc = RaiseDogState.SCENE
-                    is_boss = False
+                    self.is_boss = False
                     continue
 
-                if first_time:
+                if self.first_time:
                     Logger.log_msg("开始检查是否满级")
                     Utils.script_sleep()
                     Utils.update_screen()
@@ -225,15 +249,17 @@ class RaiseDog(object):
 
                         Logger.log_msg("战斗")
                         Utils.touch_randomly(globals_region["combat_ready"])
+                    self.first_time = False
+                    continue
 
                 if Utils.find("combat/ready"):
-                    first_time = False
+                    self.first_time = False
                     Logger.log_msg("战斗")
                     Utils.touch_randomly(globals_region["combat_ready"])
                     continue
 
                 if Utils.find("combat/manual"):
-                    first_time = False
+                    self.first_time = False
                     Logger.log_msg("开启自动")
                     Utils.touch_randomly(globals_region["combat_manual"])
                     continue
@@ -253,11 +279,11 @@ class RaiseDog(object):
 
                 if Utils.find("combat/fail"):
                     Logger.log_msg("挑战失败。。")
-                    is_boss = False
+                    self.is_boss = False
                     Utils.touch_randomly(globals_region["combat_finish"])
                     # 结束战斗后，留多点时间
                     Utils.script_sleep(3, 1)
                     loc = RaiseDogState.SCENE
                     continue
 
-            Utils.script_sleep(1, 1)
+            Utils.script_sleep(2, 1)

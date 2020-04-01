@@ -463,7 +463,7 @@ class Utils(object):
             cls.update_screen()
 
     @classmethod
-    def find_and_touch(cls, image, similarity=DEFAULT_SIMILARITY):
+    def find_and_touch(cls, image, similarity=DEFAULT_SIMILARITY, center=False):
         """Finds the image on the screen and touches it if it exists
 
         Args:
@@ -476,7 +476,10 @@ class Utils(object):
         """
         region = cls.find(image, similarity)
         if region is not None:
-            cls.touch_randomly(region)
+            if center:
+                cls.touch_center(region)
+            else:
+                cls.touch_randomly(region)
             return True
         return False
 
